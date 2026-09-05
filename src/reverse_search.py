@@ -92,6 +92,7 @@ def reverse_image_search(image_path: str, image_url: str = None) -> dict:
             "page_title": match.get("title"),
             "score": match.get("position"),  # lower position = closer match
             "source": match.get("source"),
+            "thumbnail": match.get("thumbnail"),  # direct image URL, used for face-match confidence
         })
 
     result = {

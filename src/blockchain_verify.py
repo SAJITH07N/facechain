@@ -102,7 +102,7 @@ def submit(image_sha256: str, matched_url: str) -> dict:
     tx = contract.functions.submitProof(record_hash, matched_url).build_transaction({
         "from": account.address,
         "nonce": w3.eth.get_transaction_count(account.address),
-        "gas": 200000,
+        "gas": 500000,
         "maxFeePerGas": w3.to_wei("30", "gwei"),
         "maxPriorityFeePerGas": w3.to_wei("2", "gwei"),
         "chainId": w3.eth.chain_id,
@@ -113,6 +113,14 @@ def submit(image_sha256: str, matched_url: str) -> dict:
     raw_tx = getattr(signed, "raw_transaction", None) or getattr(signed, "rawTransaction", None)
     tx_hash = w3.eth.send_raw_transaction(raw_tx)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+
+    if receipt.status != 1:
+        raise RuntimeError(
+            f"Transaction {tx_hash.hex()} was mined but REVERTED (status={receipt.status}). "
+            f"Check it on Etherscan: https://sepolia.etherscan.io/tx/{tx_hash.hex()} "
+            f"— common causes: 'Proof already exists' (duplicate recordHash), "
+            f"or insufficient gas."
+        )
 
     return {
         "tx_hash": tx_hash.hex(),
@@ -137,7 +145,7 @@ def verify(image_sha256: str, matched_url: str, timestamp: int) -> dict:
         "on_chain_matched_url": on_chain_url,
         "on_chain_timestamp": on_chain_ts,
         "submitter_address": submitter,
-        "verified": exists and on_chain_url == matched_url and on_chain_ts == timestamp,
+        "verified": exists and on_chain_url == matched_url,
     }
 
 

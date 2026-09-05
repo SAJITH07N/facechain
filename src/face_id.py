@@ -12,8 +12,11 @@ Usage:
 import sys
 import json
 import hashlib
+import tempfile
+import os
 import face_recognition
 import numpy as np
+import requests
 
 
 def encode_face(image_path: str) -> dict:
@@ -44,6 +47,33 @@ def encode_face(image_path: str) -> dict:
         "face_box": {"top": top, "right": right, "bottom": bottom, "left": left},
         "encoding": encoding.tolist(),  # 128 floats
     }
+
+
+def encode_face_from_url(image_url: str) -> dict:
+    """Downloads an image from a URL and runs the same face detection/
+    encoding used on the original scan, so it can be compared against it.
+    Returns None if the download fails or no face is found (this is
+    expected and not an error — many matched images won't contain a
+    clear face, e.g. a product photo or a group shot)."""
+    try:
+        response = requests.get(image_url, timeout=15)
+        response.raise_for_status()
+    except requests.RequestException:
+        return None
+
+    suffix = os.path.splitext(image_url.split("?")[0])[1] or ".jpg"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(response.content)
+        tmp_path = tmp.name
+
+    try:
+        return encode_face(tmp_path)
+    except Exception:
+        # No face detected in the downloaded image, or it wasn't a valid
+        # image file — both are expected outcomes, not failures.
+        return None
+    finally:
+        os.unlink(tmp_path)
 
 
 def compare_faces(encoding_a: list, encoding_b: list, tolerance: float = 0.6) -> dict:
